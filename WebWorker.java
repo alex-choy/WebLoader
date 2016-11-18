@@ -61,6 +61,11 @@ public class WebWorker extends Thread {
 			catch(IOException ignored) {}
 		}
 	}
+     
+     
+     
+     public void stopThread(){
+     }
 
 	
 }
