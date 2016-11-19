@@ -47,6 +47,7 @@ public class WebWorker extends Thread {
 		catch(InterruptedException exception) {
 			// YOUR CODE HERE
 			// deal with interruption
+			System.out.println("The program has been interrupted" );
 			System.out.println("Exception: " + exception.toString());
 		}
 		catch(IOException ignored) {

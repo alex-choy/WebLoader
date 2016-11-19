@@ -4,6 +4,11 @@
  * and open the template in the editor.
  */
 
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.util.Scanner;
+import java.util.concurrent.Semaphore;
+
 import javafx.application.Application;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
@@ -15,6 +20,7 @@ import javafx.geometry.Insets;
 import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -30,11 +36,24 @@ public class WebFrame extends Application {
     
     @SuppressWarnings("unchecked")
 	@Override
-    public void start(Stage stage) {
+    public void start(Stage stage) throws FileNotFoundException {
         TableView<URLStrings> tv = new TableView();
-        ObservableList<URLStrings> data = FXCollections.observableArrayList(
-                new URLStrings("http://www.sjsu.edu/cs/", ""));
+        Semaphore sem = new Semaphore(4);
+        Scanner in = new Scanner(new File("URL.txt"));
+        double count = 0;       
         
+        ObservableList<URLStrings> data = FXCollections.observableArrayList();
+       
+        while (in.hasNextLine()){
+        	String url = in.next();
+        	String status = "";
+        	
+        	URLStrings string = new URLStrings(url, status);
+        	data.add(string);
+        	count++; //Increment count so we can update the status bar
+        }
+        double addToProgress = 1/count;
+        in.close();
         
         TableColumn URLCol = new TableColumn("URL");
         URLCol.setMinWidth(100);
@@ -45,25 +64,10 @@ public class WebFrame extends Application {
         Button stopButt  = new Button("Stop");
         stopButt.setDisable(true);
 
-		WebWorker worker = new WebWorker("http://www.sjsu.edu/cs/");
-        fetchButt.setOnAction(new EventHandler(){
-			@Override
-			public void handle(Event event) {
-				fetchButt.setDisable(true);
-				stopButt.setDisable(false);
-				worker.start();	
-			}
-        		
-        });
         
-        stopButt.setOnAction(new EventHandler(){
-        	@Override	
-        	public void handle(Event event){
-        		stopButt.setDisable(true);
-        		worker.interrupt();
-        		fetchButt.setDisable(false);
-        	}
-        });
+        ProgressBar bar = new ProgressBar(0);
+		//WebWorker worker = new WebWorker("http://www.sjsu.edu/cs/");
+        
         	
         
         
@@ -76,6 +80,49 @@ public class WebFrame extends Application {
         tv.setItems(data);
         tv.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         
+        fetchButt.setOnAction(new EventHandler(){
+			@Override
+			public void handle(Event event) {
+				fetchButt.setDisable(true);
+				stopButt.setDisable(false);
+				WebWorker worker;
+				for(URLStrings url: data){
+					worker = new WebWorker(url.getURL().toString());
+					url.setStatus("Running");
+					tv.getColumns().get(1).setVisible(false);
+					tv.getColumns().get(1).setVisible(true);
+					try {
+						sem.acquire();
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					worker.start();
+					sem.release();
+					double progress = bar.getProgress();
+					
+			        bar.setProgress(bar.getProgress() + addToProgress);
+				}
+				
+			}
+        		
+        });
+        
+        stopButt.setOnAction(new EventHandler(){
+        	@Override	
+        	public void handle(Event event){
+        		stopButt.setDisable(true);
+        		for(URLStrings s: data){
+        			s.setStatus("Stopped");
+        		}
+				tv.getColumns().get(1).setVisible(false);
+				tv.getColumns().get(1).setVisible(true);
+        		
+        		//worker.interrupt();
+        		//fetchButt.setDisable(false);
+        	}
+        });
+        
         Scene scene = new Scene(new Group());
         stage.setTitle("Table View Sample");
         stage.setHeight(500);
@@ -87,12 +134,9 @@ public class WebFrame extends Application {
         HBox hbox = new HBox();
         hbox.setSpacing(5);
         hbox.setPadding(new Insets(10, 0, 0, 10));
-        hbox.setSpacing(5);
-        hbox.setPadding(new Insets(10, 0, 0, 10));
-        
-        vbox.getChildren().addAll(tv);
-        hbox.getChildren().addAll(fetchButt, stopButt);
-        vbox.getChildren().add(hbox);
+
+        hbox.getChildren().addAll(fetchButt, stopButt, bar);
+        vbox.getChildren().addAll(tv,hbox);
         ((Group) scene.getRoot()).getChildren().addAll(vbox);
  
         stage.setScene(scene);
@@ -111,8 +155,8 @@ public class WebFrame extends Application {
 
 
     public static class URLStrings {
-        StringProperty URL;
-        StringProperty status;
+        private StringProperty URL;
+        private StringProperty status;
         URLStrings(String URL, String status) {
             this.URL = new SimpleStringProperty(URL);
             this.status = new SimpleStringProperty(status);
@@ -123,6 +167,10 @@ public class WebFrame extends Application {
 
         public String getStatus() {
             return status.get();
+        }
+        
+        public void setStatus(String status){
+        	this.status = new SimpleStringProperty(status);
         }
     }
 }
