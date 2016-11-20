@@ -9,7 +9,10 @@ import javax.swing.*;
 import javafx.collections.ObservableList;
 import javafx.scene.control.Button;
 import javafx.scene.control.ProgressBar;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TableView;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
 
 public class WebWorker extends Thread {
 	/*
@@ -22,13 +25,10 @@ public class WebWorker extends Thread {
 	ProgressBar bar;
 	double incrementBar;
 	TableView tv;
-	// Button fetchButt;
-	// Button multiButt;
-	// Button stopButt;
-	CountDownLatch count;
+	ProgressIndicator indicator;
 
 	public WebWorker(ObservableList<WebFrame.URLStrings> data, String url, int rowNumber, double incrementBar,
-			ProgressBar bar, TableView tv, CountDownLatch count) {
+			ProgressBar bar, ProgressIndicator indicator, TableView tv) {
 		this.data = data;
 		urlString = url;
 		this.rowNumber = rowNumber;
@@ -36,7 +36,7 @@ public class WebWorker extends Thread {
 		this.bar = bar;
 		this.incrementBar = incrementBar;
 		this.tv = tv;
-		this.count = count;
+		this.indicator = indicator;
 
 	}
 
@@ -72,6 +72,7 @@ public class WebWorker extends Thread {
 		// Otherwise control jumps to a catch...
 		catch (MalformedURLException ignored) {
 			System.out.println("Exception: " + ignored.toString());
+			interrupted = true;
 		} catch (InterruptedException exception) {
 			// YOUR CODE HERE
 			// deal with interruption
@@ -79,6 +80,10 @@ public class WebWorker extends Thread {
 			interrupted = true;
 		} catch (IOException ignored) {
 			System.out.println("Exception: " + ignored.toString());
+			interrupted = true;
+		} catch (Exception e) {
+			System.out.println("Exception: " + e.toString());
+			interrupted = true;
 		}
 		// "finally" clause, to close the input stream
 		// in any case
@@ -91,11 +96,17 @@ public class WebWorker extends Thread {
 		}
 		if (!interrupted) {
 			bar.setProgress(bar.getProgress() + incrementBar);
+			if (bar.getProgress() > .999)
+				bar.setProgress(1);
+
+			indicator.setProgress(bar.getProgress());
 			data.get(rowNumber).setStatus("Complete");
 			tv.refresh();
-			count.countDown();
-		}
-		else{
+		} else {
+			bar.setProgress(bar.getProgress() + incrementBar);
+			if (bar.getProgress() > .9999999)
+				bar.setProgress(1);
+			indicator.setProgress(bar.getProgress());
 			data.get(rowNumber).setStatus("Interrupted");
 			tv.refresh();
 		}
